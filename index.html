@@ -1,99 +1,153 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Gull Control Test</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      background: #aee1f9;
-      touch-action: none;
-    }
-
-    #game {
-      position: relative;
-      width: 100vw;
-      height: 100vh;
-    }
-
-    #gull {
-      position: absolute;
-      font-size: 60px;
-      left: 50%;
-      top: 50%;
-      transform: translate(-50%, -50%);
-    }
-
-    #joystick {
-      position: absolute;
-      width: 120px;
-      height: 120px;
-      bottom: 110px;
-      right: 20px;
-      background: rgba(255,255,255,0.4);
-      border-radius: 60px;
-      border: 2px solid #fff;
-      touch-action: none;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>3D Gull Scene — Enhanced</title>
+<style>
+  /* Fullscreen, no margin */
+  html, body {
+    margin: 0; 
+    padding: 0;
+    overflow: hidden;
+    height: 100%;
+    background: linear-gradient(to top, #1e3c72, #aee1f9); /* sky gradient */
+    font-family: Arial, sans-serif;
+    user-select: none;
+  }
+  #instructions {
+    position: absolute;
+    top: 10px; left: 10px;
+    background: rgba(255 255 255 / 0.8);
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 14px;
+    color: #222;
+    max-width: 280px;
+    line-height: 1.4;
+    z-index: 10;
+  }
+  canvas {
+    display: block;
+  }
+</style>
 </head>
 <body>
-  <div id="game">
-    <div id="gull">🕊️</div>
-    <div id="joystick"></div>
-  </div>
 
-  <script>
-    const gull = document.getElementById("gull");
-    const joystick = document.getElementById("joystick");
+<div id="instructions">
+  Use mouse or touch drag to orbit the camera.<br />
+  Scroll or pinch to zoom.<br />
+  The gull gently bobs on animated waves.
+</div>
 
-    let direction = { x: 0, y: 0 };
-    let gullPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.min.js"></script>
+<script>
+  // Scene & Camera setup
+  const scene = new THREE.Scene();
 
-    // Touch control
-    joystick.addEventListener("touchstart", e => {
-      handleTouch(e);
-    });
+  // Fog for depth effect
+  scene.fog = new THREE.FogExp2(0xaee1f9, 0.02);
 
-    joystick.addEventListener("touchmove", e => {
-      handleTouch(e);
-    });
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 200);
+  camera.position.set(15, 12, 15);
 
-    joystick.addEventListener("touchend", () => {
-      direction = { x: 0, y: 0 };
-    });
+  // Renderer
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  document.body.appendChild(renderer.domElement);
 
-    function handleTouch(e) {
-      const touch = e.touches[0];
-      const rect = joystick.getBoundingClientRect();
-      let x = touch.clientX - rect.left - rect.width / 2;
-      let y = touch.clientY - rect.top - rect.height / 2;
+  // Controls with smooth damping
+  const controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+  controls.minDistance = 5;
+  controls.maxDistance = 50;
+  controls.target.set(0, 2, 0);
 
-      direction = {
-        x: x / (rect.width / 2),
-        y: y / (rect.height / 2)
-      };
+  // Lights
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambientLight);
+
+  const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+  dirLight.position.set(10, 20, 10);
+  dirLight.castShadow = true;
+  dirLight.shadow.mapSize.width = 2048;
+  dirLight.shadow.mapSize.height = 2048;
+  dirLight.shadow.camera.left = -20;
+  dirLight.shadow.camera.right = 20;
+  dirLight.shadow.camera.top = 20;
+  dirLight.shadow.camera.bottom = -20;
+  scene.add(dirLight);
+
+  // Ocean waves plane with sine wave vertex displacement
+  const oceanGeo = new THREE.PlaneGeometry(100, 100, 100, 100);
+  const oceanMat = new THREE.MeshPhongMaterial({color: 0x1e90ff, side: THREE.DoubleSide, flatShading: true});
+  const ocean = new THREE.Mesh(oceanGeo, oceanMat);
+  ocean.rotation.x = -Math.PI / 2;
+  ocean.receiveShadow = true;
+  scene.add(ocean);
+
+  // Load gull texture
+  const textureLoader = new THREE.TextureLoader();
+  const gullTexture = textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Larus_argentatus_-_Alkborough_Banks_-_UK_-_male-8a.jpg/320px-Larus_argentatus_-_Alkborough_Banks_-_UK_-_male-8a.jpg');
+
+  // Gull plane
+  const gullGeo = new THREE.PlaneGeometry(5, 3.5);
+  const gullMat = new THREE.MeshLambertMaterial({map: gullTexture, transparent: true});
+  const gull = new THREE.Mesh(gullGeo, gullMat);
+  gull.position.set(0, 3, 0);
+  gull.castShadow = true;
+  scene.add(gull);
+
+  // Animation params
+  let clock = new THREE.Clock();
+
+  // Wave animation function for ocean vertex displacement
+  function animateWaves() {
+    const time = clock.getElapsedTime();
+    const positions = ocean.geometry.attributes.position;
+    for(let i=0; i < positions.count; i++){
+      const x = positions.getX(i);
+      const y = positions.getY(i);
+      // wave height based on sine of x,y, and time for moving wave
+      const waveHeight = Math.sin(x * 0.2 + time * 2) * 0.4 + Math.cos(y * 0.3 + time * 2.5) * 0.4;
+      positions.setZ(i, waveHeight);
     }
+    positions.needsUpdate = true;
+    ocean.geometry.computeVertexNormals();
+  }
 
-    // Movement loop
-    function update() {
-      gullPos.x += direction.x * 5;
-      gullPos.y += direction.y * 5;
+  // Gull bobbing animation params
+  const bobHeight = 0.3;
+  const bobSpeed = 1.5;
 
-      // Clamp
-      gullPos.x = Math.max(0, Math.min(window.innerWidth, gullPos.x));
-      gullPos.y = Math.max(0, Math.min(window.innerHeight, gullPos.y));
+  function animate() {
+    requestAnimationFrame(animate);
 
-      gull.style.left = gullPos.x + "px";
-      gull.style.top = gullPos.y + "px";
+    animateWaves();
 
-      requestAnimationFrame(update);
-    }
+    // Gull bobbing up/down smoothly
+    const elapsed = clock.getElapsedTime();
+    gull.position.y = 3 + Math.sin(elapsed * bobSpeed) * bobHeight;
 
-    update();
-  </script>
+    // Billboard effect - make gull always face camera
+    gull.lookAt(camera.position);
+
+    controls.update();
+    renderer.render(scene, camera);
+  }
+
+  animate();
+
+  // Handle window resize
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+</script>
+
 </body>
 </html>
