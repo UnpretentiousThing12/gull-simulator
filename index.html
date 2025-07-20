@@ -1,153 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<title>3D Gull Scene — Enhanced</title>
-<style>
-  /* Fullscreen, no margin */
-  html, body {
-    margin: 0; 
-    padding: 0;
-    overflow: hidden;
-    height: 100%;
-    background: linear-gradient(to top, #1e3c72, #aee1f9); /* sky gradient */
-    font-family: Arial, sans-serif;
-    user-select: none;
-  }
-  #instructions {
-    position: absolute;
-    top: 10px; left: 10px;
-    background: rgba(255 255 255 / 0.8);
-    padding: 10px 15px;
-    border-radius: 8px;
-    font-size: 14px;
-    color: #222;
-    max-width: 280px;
-    line-height: 1.4;
-    z-index: 10;
-  }
-  canvas {
-    display: block;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <title>Gull Simulator: Cliffs & Chips</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #aee1f9;
+      touch-action: none;
+    }
+
+    #game {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #world {
+      position: absolute;
+      width: 4000px;
+      height: 4000px;
+      background: linear-gradient(to bottom, #aee1f9 0%, #70c1e8 100%);
+    }
+
+    .cliff {
+      position: absolute;
+      width: 200px;
+      height: 600px;
+      background: #5c4a2c;
+      border-left: 10px solid #3a2f1d;
+      bottom: 0;
+    }
+
+    .sea {
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: 500px;
+      background: #1e90ff;
+    }
+
+    #gull {
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: url('https://upload.wikimedia.org/wikipedia/commons/2/20/Seagull_icon.svg') center/contain no-repeat;
+      z-index: 10;
+    }
+
+    #speedControl {
+      position: absolute;
+      left: 10px;
+      bottom: 10px;
+      width: 60px;
+      height: 160px;
+      background: rgba(255,255,255,0.3);
+      border: 2px solid #fff;
+      border-radius: 10px;
+    }
+
+    #joystickControl {
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      width: 120px;
+      height: 120px;
+      background: rgba(255,255,255,0.3);
+      border: 2px solid #fff;
+      border-radius: 60px;
+    }
+  </style>
 </head>
 <body>
+  <div id="game">
+    <div id="world">
+      <div class="sea"></div>
+      <div class="cliff" style="left: 500px;"></div>
+      <div class="cliff" style="left: 1200px;"></div>
+      <div class="cliff" style="left: 2000px;"></div>
+    </div>
+    <div id="gull"></div>
+    <div id="speedControl"></div>
+    <div id="joystickControl"></div>
+  </div>
 
-<div id="instructions">
-  Use mouse or touch drag to orbit the camera.<br />
-  Scroll or pinch to zoom.<br />
-  The gull gently bobs on animated waves.
-</div>
+  <script>
+    const world = document.getElementById("world");
+    const gull = document.getElementById("gull");
+    const speedControl = document.getElementById("speedControl");
+    const joystickControl = document.getElementById("joystickControl");
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.min.js"></script>
-<script>
-  // Scene & Camera setup
-  const scene = new THREE.Scene();
+    let speed = 0;
+    let direction = { x: 0, y: 0 };
+    let worldPos = {
+      x: -2000 + window.innerWidth / 2,
+      y: -2000 + window.innerHeight / 2
+    };
 
-  // Fog for depth effect
-  scene.fog = new THREE.FogExp2(0xaee1f9, 0.02);
+    // Speed Lever
+    let isDraggingSpeed = false;
+    speedControl.addEventListener("touchstart", () => isDraggingSpeed = true);
+    speedControl.addEventListener("touchend", () => isDraggingSpeed = false);
+    speedControl.addEventListener("touchmove", e => {
+      if (!isDraggingSpeed) return;
+      const touch = e.touches[0];
+      const rect = speedControl.getBoundingClientRect();
+      let y = touch.clientY - rect.top;
+      y = Math.max(0, Math.min(rect.height, y));
+      speed = 1 - y / rect.height;
+    });
 
-  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 200);
-  camera.position.set(15, 12, 15);
+    // Joystick Control
+    let isDraggingStick = false;
+    joystickControl.addEventListener("touchstart", () => isDraggingStick = true);
+    joystickControl.addEventListener("touchend", () => {
+      isDraggingStick = false;
+      direction = { x: 0, y: 0 };
+    });
+    joystickControl.addEventListener("touchmove", e => {
+      if (!isDraggingStick) return;
+      const touch = e.touches[0];
+      const rect = joystickControl.getBoundingClientRect();
+      let x = (touch.clientX - rect.left) - rect.width / 2;
+      let y = (touch.clientY - rect.top) - rect.height / 2;
+      direction = {
+        x: x / (rect.width / 2),
+        y: y / (rect.height / 2)
+      };
+    });
 
-  // Renderer
-  const renderer = new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  document.body.appendChild(renderer.domElement);
+    // Game Loop
+    function update() {
+      const moveSpeed = speed * 5;
 
-  // Controls with smooth damping
-  const controls = new THREE.OrbitControls(camera, renderer.domElement);
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-  controls.minDistance = 5;
-  controls.maxDistance = 50;
-  controls.target.set(0, 2, 0);
+      // Apply movement
+      worldPos.x -= direction.x * moveSpeed;
+      worldPos.y -= direction.y * moveSpeed;
 
-  // Lights
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
-  scene.add(ambientLight);
+      // Clamp world
+      worldPos.x = Math.max(-3000, Math.min(0, worldPos.x));
+      worldPos.y = Math.max(-3000, Math.min(0, worldPos.y));
 
-  const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-  dirLight.position.set(10, 20, 10);
-  dirLight.castShadow = true;
-  dirLight.shadow.mapSize.width = 2048;
-  dirLight.shadow.mapSize.height = 2048;
-  dirLight.shadow.camera.left = -20;
-  dirLight.shadow.camera.right = 20;
-  dirLight.shadow.camera.top = 20;
-  dirLight.shadow.camera.bottom = -20;
-  scene.add(dirLight);
+      world.style.left = worldPos.x + "px";
+      world.style.top = worldPos.y + "px";
 
-  // Ocean waves plane with sine wave vertex displacement
-  const oceanGeo = new THREE.PlaneGeometry(100, 100, 100, 100);
-  const oceanMat = new THREE.MeshPhongMaterial({color: 0x1e90ff, side: THREE.DoubleSide, flatShading: true});
-  const ocean = new THREE.Mesh(oceanGeo, oceanMat);
-  ocean.rotation.x = -Math.PI / 2;
-  ocean.receiveShadow = true;
-  scene.add(ocean);
+      // Rotate gull based on direction
+      if (direction.x !== 0 || direction.y !== 0) {
+        const angle = Math.atan2(direction.y, direction.x);
+        gull.style.transform = `translate(-50%, -50%) rotate(${angle}rad)`;
+      }
 
-  // Load gull texture
-  const textureLoader = new THREE.TextureLoader();
-  const gullTexture = textureLoader.load('https://upload.wikimedia.org/wikipedia/commons/thumb/0/0c/Larus_argentatus_-_Alkborough_Banks_-_UK_-_male-8a.jpg/320px-Larus_argentatus_-_Alkborough_Banks_-_UK_-_male-8a.jpg');
-
-  // Gull plane
-  const gullGeo = new THREE.PlaneGeometry(5, 3.5);
-  const gullMat = new THREE.MeshLambertMaterial({map: gullTexture, transparent: true});
-  const gull = new THREE.Mesh(gullGeo, gullMat);
-  gull.position.set(0, 3, 0);
-  gull.castShadow = true;
-  scene.add(gull);
-
-  // Animation params
-  let clock = new THREE.Clock();
-
-  // Wave animation function for ocean vertex displacement
-  function animateWaves() {
-    const time = clock.getElapsedTime();
-    const positions = ocean.geometry.attributes.position;
-    for(let i=0; i < positions.count; i++){
-      const x = positions.getX(i);
-      const y = positions.getY(i);
-      // wave height based on sine of x,y, and time for moving wave
-      const waveHeight = Math.sin(x * 0.2 + time * 2) * 0.4 + Math.cos(y * 0.3 + time * 2.5) * 0.4;
-      positions.setZ(i, waveHeight);
+      requestAnimationFrame(update);
     }
-    positions.needsUpdate = true;
-    ocean.geometry.computeVertexNormals();
-  }
 
-  // Gull bobbing animation params
-  const bobHeight = 0.3;
-  const bobSpeed = 1.5;
-
-  function animate() {
-    requestAnimationFrame(animate);
-
-    animateWaves();
-
-    // Gull bobbing up/down smoothly
-    const elapsed = clock.getElapsedTime();
-    gull.position.y = 3 + Math.sin(elapsed * bobSpeed) * bobHeight;
-
-    // Billboard effect - make gull always face camera
-    gull.lookAt(camera.position);
-
-    controls.update();
-    renderer.render(scene, camera);
-  }
-
-  animate();
-
-  // Handle window resize
-  window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth/window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-  });
-</script>
-
+    update();
+  </script>
 </body>
 </html>
