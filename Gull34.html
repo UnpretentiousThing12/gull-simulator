@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gull Control Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #aee1f9;
+      touch-action: none;
+    }
+
+    #game {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    #gull {
+      position: absolute;
+      font-size: 60px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+
+    #joystick {
+      position: absolute;
+      width: 120px;
+      height: 120px;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(255,255,255,0.4);
+      border-radius: 60px;
+      border: 2px solid #fff;
+      touch-action: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="game">
+    <div id="gull">🕊️</div>
+    <div id="joystick"></div>
+  </div>
+
+  <script>
+    const gull = document.getElementById("gull");
+    const joystick = document.getElementById("joystick");
+
+    let direction = { x: 0, y: 0 };
+    let gullPos = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+
+    // Touch control
+    joystick.addEventListener("touchstart", e => {
+      handleTouch(e);
+    });
+
+    joystick.addEventListener("touchmove", e => {
+      handleTouch(e);
+    });
+
+    joystick.addEventListener("touchend", () => {
+      direction = { x: 0, y: 0 };
+    });
+
+    function handleTouch(e) {
+      const touch = e.touches[0];
+      const rect = joystick.getBoundingClientRect();
+      let x = touch.clientX - rect.left - rect.width / 2;
+      let y = touch.clientY - rect.top - rect.height / 2;
+
+      direction = {
+        x: x / (rect.width / 2),
+        y: y / (rect.height / 2)
+      };
+    }
+
+    // Movement loop
+    function update() {
+      gullPos.x += direction.x * 5;
+      gullPos.y += direction.y * 5;
+
+      // Clamp
+      gullPos.x = Math.max(0, Math.min(window.innerWidth, gullPos.x));
+      gullPos.y = Math.max(0, Math.min(window.innerHeight, gullPos.y));
+
+      gull.style.left = gullPos.x + "px";
+      gull.style.top = gullPos.y + "px";
+
+      requestAnimationFrame(update);
+    }
+
+    update();
+  </script>
+</body>
+</html>
